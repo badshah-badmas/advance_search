@@ -4,11 +4,19 @@ import 'package:flutter/material.dart';
 
 class SearchResultText extends StatelessWidget {
   const SearchResultText(this.value,
-      {super.key, this.textStyle, this.highlightTextStyle});
+      {super.key,
+      this.textStyle,
+      this.highlightTextStyle,
+      this.maxLines,
+      this.overflow = TextOverflow.ellipsis,
+      this.textAlign = TextAlign.start});
 
   final String value;
   final TextStyle? textStyle;
   final TextStyle? highlightTextStyle;
+  final int? maxLines;
+  final TextOverflow overflow;
+  final TextAlign textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -17,12 +25,13 @@ class SearchResultText extends StatelessWidget {
     final TextStyle highlightTextStyle = this.highlightTextStyle ??
         const TextStyle(color: Colors.amber, backgroundColor: Colors.black26);
     return arrangeText(
-      query: query ?? '',
-      value: value,
-      
-      textStyle: textStyle,
-      highlightTextStyle: highlightTextStyle,
-    );
+        query: query ?? '',
+        value: value,
+        textStyle: textStyle,
+        highlightTextStyle: highlightTextStyle,
+        textAlign: textAlign,
+        overflow: overflow,
+        maxLines: maxLines);
   }
 }
 
@@ -31,8 +40,14 @@ Widget arrangeText({
   required String value,
   required TextStyle textStyle,
   required TextStyle highlightTextStyle,
+  int? maxLines,
+  required TextOverflow overflow,
+  required TextAlign textAlign,
 }) {
   return RichText(
+    maxLines: maxLines,
+    overflow: overflow,
+    textAlign: textAlign,
     text: TextSpan(
       children: textSpanGenerator(
         value: value,

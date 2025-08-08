@@ -1,16 +1,17 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import '../functions/controller.dart';
 import 'package:advanced_search/src/functions/search.dart';
 import 'package:advanced_search/src/model/search_result.dart';
 import 'package:advanced_search/src/ui/search_view_parent.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-
-import '../functions/controller.dart';
 
 typedef ViewBuilder = Widget Function(
   BuildContext context,
   bool isLoading,
   SearchResult searchResult,
 );
+
 typedef SearchSelector<T> = String Function(T value);
 typedef SearchFilter<T> = bool Function(T value);
 
@@ -23,84 +24,94 @@ class SearchViewBuilder<T> extends StatefulWidget {
     this.searchFilter,
     required this.items,
   });
+
   final CustomSearchController searchController;
   final ViewBuilder builder;
-  final SearchSelector searchStringSelector;
-  final SearchFilter? searchFilter;
-  final T items;
+  final SearchSelector<T> searchStringSelector;
+  final SearchFilter<T>? searchFilter;
+  final List<T> items;
 
   @override
-  State<SearchViewBuilder> createState() => _SearchViewBuilder();
-
-//   @override
-//   bool updateShouldNotify(covariant InheritedWidget oldWidget) {
-//     return false;
-//   }
-
-//   static CustomSearchBuilder of(BuildContext context) {
-//     final CustomSearchBuilder? result =
-//         context.dependOnInheritedWidgetOfExactType<CustomSearchBuilder>();
-//     assert(
-//         (result != null), 'No CustomSearchBuilder found in this widget tree');
-//     return result!;
-//   }
+  State<SearchViewBuilder<T>> createState() => _SearchViewBuilder<T>();
 }
 
-class _SearchViewBuilder extends State<SearchViewBuilder> {
+class _SearchViewBuilder<T> extends State<SearchViewBuilder<T>> {
   bool isLoading = false;
-  SearchFilter? _searchFilter;
-  SearchResult searchResult = SearchResult(exactMatch: [], suggestedResult: []);
+  late SearchFilter<T> _searchFilter;
+  late SearchResult<T> searchResult;
+  Timer? _debounce;
+
   @override
   void initState() {
-    _searchFilter = widget.searchFilter ?? (v) => true;
-    searchResult = SearchResult(exactMatch: widget.items, suggestedResult: []);
-    widget.searchController.addSearchListener(
-      (query) async {
-        if (mounted) {
-          setState(() {
-            isLoading = true;
-          });
-        }
-        final SearchResult result =
-            await compute<SearchParameterModel, SearchResult>(
-          Search.execute,
-          SearchParameterModel(
-            searchList: widget.items,
-            query: query,
-            searchSelector: widget.searchStringSelector,
-          ),
-        );
-        setState(() {
-          isLoading = false;
-          searchResult = result;
-        });
-      },
-    );
-    widget.searchController
-        .addFilterListener((SearchFilter searchFilter) async {
-      setState(() {
-        _searchFilter = searchFilter;
-      });
-    });
     super.initState();
+
+    _searchFilter = widget.searchFilter ?? (_) => true;
+    searchResult = SearchResult<T>(exactMatch: widget.items);
+
+    widget.searchController.addSearchListener(_onSearchQueryChanged);
+    widget.searchController.addFilterListener(_onFilterChanged);
+    // widget.searchController.onCancel = _onCancel;
   }
 
-  SearchResult applyFilter<T>(SearchResult result) {
-    final List<T> exactMatch = result.exactMatch
-        .where((element) => _searchFilter!(element))
-        .toList() as List<T>;
-    final List<T> suggestedResult = result.suggestedResult
-        .where((element) => _searchFilter!(element))
-        .toList() as List<T>;
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
 
-    return SearchResult(
-        exactMatch: exactMatch, suggestedResult: suggestedResult);
+  void _onSearchQueryChanged(String query) {
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+      });
+    }
+
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 800), () async {
+      final result = await SearchService.instance.execute<T>(
+        SearchParameterModel<T>(
+          searchList: widget.items,
+          query: query,
+          searchSelector: widget.searchStringSelector,
+        ),
+      );
+
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          if (result != null) {
+            searchResult = result;
+          }
+        });
+      }
+    });
+  }
+
+  void _onFilterChanged(SearchFilter<T> newFilter) {
+    setState(() {
+      _searchFilter = newFilter;
+    });
+  }
+
+
+  SearchResult _applyFilter(SearchResult result) {
+    final ordered =
+        result.orderedMatches.whereType<T>().where(_searchFilter).toList();
+    final suggested =
+        result.suggestions.whereType<T>().where(_searchFilter).toList();
+
+    return SearchResult(exactMatch: ordered, suggestedResult: suggested);
   }
 
   @override
   Widget build(BuildContext context) {
     return SearchViewParent(
-        searchController: widget.searchController,
-        child: widget.builder(context, isLoading, applyFilter(searchResult)));
+      searchController: widget.searchController,
+      child: widget.builder(
+        context,
+        isLoading,
+        _applyFilter(searchResult),
+      ),
+    );
   }
 }

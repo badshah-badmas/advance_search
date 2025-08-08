@@ -9,7 +9,21 @@ class SearchViewParent extends InheritedWidget {
   static SearchViewParent? of(BuildContext context) {
     final result =
         context.dependOnInheritedWidgetOfExactType<SearchViewParent>();
-    assert(result != null, 'No SearchViewBuilder found in context');
+    if (result == null) {
+      FlutterError.reportError(FlutterErrorDetails(
+          exception: Exception(
+              'No SearchViewParent found in context. The widget will act as normal text widget'),
+          stack: StackTrace.current,
+          library: 'advanced_search/SearchResultText',
+          silent: true));
+      // log(
+      //   'SearchViewParent.of(context)',
+      //   error:
+      //       'No SearchViewParent found in context. The widget will act as normal text widget.',
+      //   stackTrace: StackTrace.current,
+      // );
+    }
+    // assert(result != null, 'No SearchViewBuilder found in context');
     return result;
   }
 

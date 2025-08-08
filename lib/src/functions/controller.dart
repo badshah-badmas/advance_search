@@ -2,14 +2,14 @@ import 'package:advanced_search/advanced_search.dart';
 
 class CustomSearchController<T> {
   void Function(String)? _searchCallback;
-  void Function(SearchFilter searchFilter)? _filterCallback;
+  void Function(SearchFilter<T> searchFilter)? _filterCallback;
   String _query = '';
 
   void addSearchListener(void Function(String query) callback) {
     _searchCallback = callback;
   }
 
-  void addFilterListener(void Function(SearchFilter searchFilter) callback) {
+  void addFilterListener(void Function(SearchFilter<T> searchFilter) callback) {
     _filterCallback = callback;
   }
 
@@ -18,7 +18,7 @@ class CustomSearchController<T> {
     if (_searchCallback != null) _searchCallback!(query);
   }
 
-  void applyFilter(SearchFilter filter) {
+  void applyFilter(SearchFilter<T> filter) {
     if (_filterCallback != null) _filterCallback!(filter);
   }
 
